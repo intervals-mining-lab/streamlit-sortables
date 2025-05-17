@@ -47,7 +47,7 @@ export const SortableItem: FunctionComponent<SortableItemProps> = ((props) => {
 
     return (
       <li className={className} ref={sortableProps.setNodeRef} style={style} {...sortableProps.attributes} {...sortableProps.listeners}>
-        444 {props.children ? props.children : null}
+        {props.children ? props.children : null}
       </li>
     )
 })

@@ -40,7 +40,7 @@ interface ContainerDescription {
 
 interface ContainerProps {
   header: string,
-  items: string[],
+  items: { id: string, text: string }[],
   direction?: Direction,
   width?: number,
   children?: ReactNode
@@ -71,9 +71,15 @@ interface SortableComponentProps {
 }
 
 function SortableComponent(props: SortableComponentProps) {
-  const [items, setItems] = useState(props.items);
-  const [clonedItems, setClonedItems] = useState(props.items);
-  const [activeItem, setActiveItem] = useState(null);
+  const itemsWithIds = props.items.map(
+    ({ header, items }) => ({
+      header,
+      items: items.map((item, index) => ({ id: index.toString(), text: item }))
+    })
+  )
+  const [items, setItems] = useState(itemsWithIds);
+  const [clonedItems, setClonedItems] = useState(itemsWithIds);
+  const [activeItem, setActiveItem] = useState({id: null, text: null});
 
   const sensors = useSensors(
     useSensor(MouseSensor, {
@@ -104,9 +110,9 @@ function SortableComponent(props: SortableComponentProps) {
           return (
             <Container key={header} header={header} items={items} direction={props.direction}>
               {
-                items.map(item => {
+                items.map((item) => {
                   return (
-                    <SortableItem key={item} id={item} isActive={item === activeItem}>{item}</SortableItem>
+                    <SortableItem key={item.id} id={item.id} isActive={item.id === activeItem.id}>{item.text}</SortableItem>
                   )
                 })
               }
@@ -115,24 +121,24 @@ function SortableComponent(props: SortableComponentProps) {
         })
       }
       <DragOverlay>
-        <SortableItem id="" isOverlay={true}>{activeItem}</SortableItem>
+        <SortableItem id="" isOverlay={true}>{activeItem.text}</SortableItem>
       </DragOverlay>
     </DndContext>
   );
 
   function handleDragStart(event: any) {
-    setActiveItem(event.active.id);
+    setActiveItem({id: event.active.id, text: event.active.text});
     setClonedItems(items);
   }
 
   function handleDragCancel() {
     console.log('canceled')
-    setActiveItem(null);
+    setActiveItem({id: null, text: null});
     setItems(clonedItems);
   }
 
   function handleDragEnd(event: any) {
-    setActiveItem(null);
+    setActiveItem({id: null, text: null});
     const { active, over } = event;
     if (!over) {
       return
@@ -143,8 +149,8 @@ function SortableComponent(props: SortableComponentProps) {
 
     if (activeContainerIndex === overContainerIndex) {
       const container = items[activeContainerIndex];
-      const activeItemIndex = container.items.indexOf(active.id);
-      const overItemIndex = container.items.indexOf(over.id);
+      const activeItemIndex = container.items.findIndex(item => item.id === active.id);
+      const overItemIndex = container.items.findIndex(item => item.id === over.id);
 
       const newItems = items.map(({ header, items }, index) => {
         if (index === activeContainerIndex) {
@@ -162,7 +168,11 @@ function SortableComponent(props: SortableComponentProps) {
 
       setItems(newItems);
       if (!isSameOrder(clonedItems, newItems)) {
-        Streamlit.setComponentValue(newItems);
+        const transformedItems = newItems.map(({ header, items }) => ({
+          header,
+          items: items.map(item => item.text)
+        }));
+        Streamlit.setComponentValue(transformedItems);
         Streamlit.setFrameHeight();
       }
     }
@@ -213,10 +223,10 @@ function SortableComponent(props: SortableComponentProps) {
     if (containerIndex >= 0) {
       return containerIndex;
     }
-    return items.findIndex(({ items }) => items.includes(item));
+    return items.findIndex(({ items }) => items.some(x => x.id === item));
   }
 
-  function isSameOrder(items1: ContainerDescription[], items2: ContainerDescription[]) {
+  function isSameOrder(items1: { header: string; items: { id: string; text: string; }[]; }[], items2: { header: string; items: { id: string; text: string; }[]; }[]) {
     if (items1.length !== items2.length) {
       return false;
     }
@@ -227,7 +237,7 @@ function SortableComponent(props: SortableComponentProps) {
         return false;
       }
       return items.every((item, index) => {
-        return item === container2.items[index];
+        return item.id === container2.items[index].id;
       });
     })
   }
